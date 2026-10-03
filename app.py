@@ -1,5 +1,6 @@
 import streamlit as st
 import os
+import glob
 import librosa
 import numpy as np
 from yt_dlp import YoutubeDL
@@ -40,14 +41,13 @@ if check_password():
         if youtube_url:
             with st.spinner("유튜브에서 오디오를 가져와서 분석하는 중이야... 잠시만 기다려줘!"):
                 try:
-                    output_file = "audio.m4a"
-                    if os.path.exists(output_file):
-                        os.remove(output_file)
+                    # 기존에 남아있는 파일들 싹 청소
+                    for f in glob.glob("audio.*"):
+                        os.remove(f)
 
-                    # 모바일 웹 클라이언트를 이용해 봇 차단 우회
+                    # 포맷 에러 방지를 위해 확장자를 자동으로 잡도록 설정
                     ydl_opts = {
-                        'format': 'bestaudio',
-                        'outtmpl': output_file,
+                        'outtmpl': 'audio.%(ext)s',
                         'extractor_args': {'youtube': {'player_client': ['mweb']}},
                         'nocheckcertificate': True,
                     }
@@ -55,6 +55,12 @@ if check_password():
                     with YoutubeDL(ydl_opts) as ydl:
                         info = ydl.extract_info(youtube_url, download=True)
                         title = info.get('title', '제목 없음')
+                    
+                    # 실제로 다운로드된 파일 찾기
+                    downloaded_files = glob.glob("audio.*")
+                    if not downloaded_files:
+                        raise Exception("파일 다운로드에 실패했어.")
+                    output_file = downloaded_files[0]
                     
                     st.success(f"오디오 추출 성공! 🎵 곡 제목: {title}")
                     st.audio(output_file)
