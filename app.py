@@ -17,9 +17,10 @@ search_query = st.text_input("검색할 곡 제목을 입력해줘", placeholder
 if search_query:
     with st.spinner("유튜브에서 곡을 검색하는 중..."):
         try:
+            # 검색 시에도 ios/web 조합 클라이언트 사용
             search_opts = {
                 'extract_flat': True,
-                'extractor_args': {'youtube': {'player_client': ['tv_embedded']}},
+                'extractor_args': {'youtube': {'player_client': ['ios', 'web']}},
                 'nocheckcertificate': True,
             }
             
@@ -52,10 +53,11 @@ if search_query:
                         for f in glob.glob("audio.*"):
                             os.remove(f)
 
+                        # 💡 403 에러 우회를 위해 ios/web 클라이언트 조합 적용
                         download_opts = {
                             'format': 'bestaudio/best',
                             'outtmpl': 'audio.%(ext)s',
-                            'extractor_args': {'youtube': {'player_client': ['tv_embedded']}},
+                            'extractor_args': {'youtube': {'player_client': ['ios', 'web']}},
                             'nocheckcertificate': True,
                         }
                         
@@ -94,18 +96,18 @@ if search_query:
                         frames_per_chunk = int(sr * chunk_duration / hop_length)
                         total_frames = chroma.shape[1]
                         
-                        # 💡 다양한 코드 템플릿 정의 (반음 위치 기준 12진법 배열)
+                        # 다양한 코드 템플릿 정의
                         chord_templates = {
-                            "": [1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0],             # Major (Root, 3, 5)
-                            "m": [1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0],            # Minor (Root, b3, 5)
-                            "7": [1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0],            # Dominant 7th (Root, 3, 5, b7)
-                            "maj7": [1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1],         # Major 7th (Root, 3, 5, 7)
-                            "m7": [1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0],           # Minor 7th (Root, b3, 5, b7)
-                            "sus4": [1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0],          # Sus4 (Root, 4, 5)
-                            "sus2": [1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0],          # Sus2 (Root, 2, 5)
-                            "dim": [1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0],           # Diminished (Root, b3, b5)
-                            "aug": [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0],           # Augmented (Root, 3, #5)
-                            "add9": [1, 0, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0],         # Add9 / Add2 (Root, 2, 3, 5)
+                            "": [1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0],             # Major
+                            "m": [1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0],            # Minor
+                            "7": [1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0],            # Dominant 7th
+                            "maj7": [1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1],         # Major 7th
+                            "m7": [1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0],           # Minor 7th
+                            "sus4": [1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0],          # Sus4
+                            "sus2": [1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0],          # Sus2
+                            "dim": [1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0],           # Diminished
+                            "aug": [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0],           # Augmented
+                            "add9": [1, 0, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0],         # Add9
                         }
                         
                         chord_names = []
@@ -137,7 +139,7 @@ if search_query:
                         
                         st.markdown("### 📊 타임라인별 상세 코드 진행 (앞부분 45초)")
                         st.table(progression_data)
-                        st.info("💡 팁: 이제 7도화음과 sus4, dim 같은 다채로운 코드들도 함께 분석되니까 연주할 때 훨씬 도움될 거야!")
+                        st.info("💡 팁: 403 우회 클라이언트를 `ios, web`으로 교체했어!")
                         
         except Exception as e:
             st.error(f"분석 중에 문제가 생겼어: {e}")
