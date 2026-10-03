@@ -17,7 +17,6 @@ search_query = st.text_input("검색할 곡 제목을 입력해줘", placeholder
 if search_query:
     with st.spinner("유튜브에서 곡을 검색하는 중..."):
         try:
-            # 검색 시에도 ios/web 조합 클라이언트 사용
             search_opts = {
                 'extract_flat': True,
                 'extractor_args': {'youtube': {'player_client': ['ios', 'web']}},
@@ -53,9 +52,8 @@ if search_query:
                         for f in glob.glob("audio.*"):
                             os.remove(f)
 
-                        # 💡 403 에러 우회를 위해 ios/web 클라이언트 조합 적용
+                        # 💡 포맷 강제 지정 제거 (yt-dlp가 최적의 포맷을 알아서 선택하도록 수정)
                         download_opts = {
-                            'format': 'bestaudio/best',
                             'outtmpl': 'audio.%(ext)s',
                             'extractor_args': {'youtube': {'player_client': ['ios', 'web']}},
                             'nocheckcertificate': True,
@@ -139,7 +137,7 @@ if search_query:
                         
                         st.markdown("### 📊 타임라인별 상세 코드 진행 (앞부분 45초)")
                         st.table(progression_data)
-                        st.info("💡 팁: 403 우회 클라이언트를 `ios, web`으로 교체했어!")
+                        st.info("💡 팁: 포맷 제한을 없애서 유튜브가 주는 최적의 오디오로 바로 다운받게 바꿨어!")
                         
         except Exception as e:
             st.error(f"분석 중에 문제가 생겼어: {e}")
