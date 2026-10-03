@@ -8,82 +8,78 @@ from yt_dlp import YoutubeDL
 # 페이지 설정
 st.set_page_config(page_title="유튜브 키 & 코드 분석기", page_icon="🎵")
 
-# 비밀번호 설정
-PASSWORD = "1234"
+st.title("🎸 유튜브 키 & 코드 분석기")
+st.markdown("노래 제목이나 가수명을 검색하면 유튜브에서 찾아줄게!")
 
-def check_password():
-    """비밀번호 인증 함수"""
-    if "authenticated" not in st.session_state:
-        st.session_state["authenticated"] = False
+# 검색어 입력
+search_query = st.text_input("검색할 곡 제목을 입력해줘", placeholder="예: DAY6 예뻤어")
 
-    if st.session_state["authenticated"]:
-        return True
+if search_query:
+    with st.spinner("유튜브에서 곡을 검색하는 중..."):
+        try:
+            # 유튜브 검색 옵션 (상위 5개 검색)
+            search_opts = {
+                'extract_flat': True,
+                'extractor_args': {'youtube': {'player_client': ['mweb']}},
+            }
+            
+            with YoutubeDL(search_opts) as ydl:
+                search_result = ydl.extract_info(f"ytsearch5:{search_query}", download=False)
+                entries = search_result.get('entries', [])
+            
+            if not entries:
+                st.warning("검색 결과가 없네. 다른 검색어로 다시 입력해 봐!")
+            else:
+                # 검색된 영상들의 제목과 URL을 딕셔너리로 매핑
+                video_options = {}
+                for entry in entries:
+                    title = entry.get('title')
+                    url = entry.get('url') or f"https://www.youtube.com/watch?v={entry.get('id')}"
+                    if title:
+                        video_options[title] = url
+                
+                # 사용자가 목록에서 선택할 수 있도록 셀렉트박스 제공
+                selected_title = st.selectbox("검색된 곡 중 분석할 노래를 골라봐!", list(video_options.keys()))
+                
+                if st.button("선택한 곡 분석 시작"):
+                    selected_url = video_options[selected_title]
+                    
+                    with st.spinner(f"'{selected_title}' 오디오 가져와서 분석 중이야... 잠시만 기다려줘!"):
+                        # 기존 파일 청소
+                        for f in glob.glob("audio.*"):
+                            os.remove(f)
 
-    st.subheader("🔒 로그인이 필요해")
-    input_pw = st.text_input("비밀번호를 입력해줘", type="password")
-    
-    if st.button("로그인"):
-        if input_pw == PASSWORD:
-            st.session_state["authenticated"] = True
-            st.rerun()
-        else:
-            st.error("비밀번호가 틀렸어!")
-    return False
+                        download_opts = {
+                            'outtmpl': 'audio.%(ext)s',
+                            'extractor_args': {'youtube': {'player_client': ['mweb']}},
+                            'nocheckcertificate': True,
+                        }
+                        
+                        with YoutubeDL(download_opts) as ydl:
+                            ydl.download([selected_url])
+                        
+                        downloaded_files = glob.glob("audio.*")
+                        if not downloaded_files:
+                            raise Exception("오디오 다운로드에 실패했어.")
+                        output_file = downloaded_files[0]
+                        
+                        st.success(f"오디오 추출 성공! 🎵 {selected_title}")
+                        st.audio(output_file)
 
-# 메인 앱 로직
-if check_password():
-    st.title("🎸 유튜브 키 & 코드 분석기")
-    st.markdown("유튜브 링크를 넣으면 오디오를 추출하고 키와 코드 성향을 분석해 줄게!")
-
-    youtube_url = st.text_input("유튜브 링크를 입력해줘", placeholder="https://www.youtube.com/watch?v=...")
-
-    if st.button("분석 시작"):
-        if youtube_url:
-            with st.spinner("유튜브에서 오디오를 가져와서 분석하는 중이야... 잠시만 기다려줘!"):
-                try:
-                    # 기존에 남아있는 파일들 싹 청소
-                    for f in glob.glob("audio.*"):
-                        os.remove(f)
-
-                    # 포맷 에러 방지를 위해 확장자를 자동으로 잡도록 설정
-                    ydl_opts = {
-                        'outtmpl': 'audio.%(ext)s',
-                        'extractor_args': {'youtube': {'player_client': ['mweb']}},
-                        'nocheckcertificate': True,
-                    }
-                    
-                    with YoutubeDL(ydl_opts) as ydl:
-                        info = ydl.extract_info(youtube_url, download=True)
-                        title = info.get('title', '제목 없음')
-                    
-                    # 실제로 다운로드된 파일 찾기
-                    downloaded_files = glob.glob("audio.*")
-                    if not downloaded_files:
-                        raise Exception("파일 다운로드에 실패했어.")
-                    output_file = downloaded_files[0]
-                    
-                    st.success(f"오디오 추출 성공! 🎵 곡 제목: {title}")
-                    st.audio(output_file)
-
-                    # Librosa를 이용한 간단한 키(Key) 분석
-                    st.markdown("---")
-                    st.subheader("🔍 음악 AI 분석 결과")
-                    
-                    # 서버 용량 과부하 방지를 위해 앞부분 30초만 로드해서 분석
-                    y, sr = librosa.load(output_file, duration=30)
-                    
-                    # 크로마(Chroma) 특징 추출을 통한 키 추정
-                    chroma = librosa.feature.chroma_stft(y=y, sr=sr)
-                    chroma_mean = np.mean(chroma, axis=1)
-                    
-                    notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
-                    estimated_key_idx = np.argmax(chroma_mean)
-                    estimated_key = notes[estimated_key_idx]
-                    
-                    st.metric(label="추정된 주요 키 (Key)", value=estimated_key)
-                    st.info("💡 팁: 서버 용량 제한 때문에 곡의 앞부분 30초를 기준으로 키를 분석했어!")
-                    
-                except Exception as e:
-                    st.error(f"분석 중에 문제가 생겼어: {e}")
-        else:
-            st.warning("유튜브 링크를 먼저 입력해 줘.")
+                        # Librosa를 이용한 키(Key) 분석
+                        st.markdown("---")
+                        st.subheader("🔍 음악 AI 분석 결과")
+                        
+                        y, sr = librosa.load(output_file, duration=30)
+                        chroma = librosa.feature.chroma_stft(y=y, sr=sr)
+                        chroma_mean = np.mean(chroma, axis=1)
+                        
+                        notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+                        estimated_key_idx = np.argmax(chroma_mean)
+                        estimated_key = notes[estimated_key_idx]
+                        
+                        st.metric(label="추정된 주요 키 (Key)", value=estimated_key)
+                        st.info("💡 팁: 서버 용량 제한 때문에 곡의 앞부분 30초를 기준으로 키를 분석했어!")
+                        
+        except Exception as e:
+            st.error(f"분석 중에 문제가 생겼어: {e}")
