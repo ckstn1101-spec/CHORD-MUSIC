@@ -9,7 +9,7 @@ from yt_dlp import YoutubeDL
 st.set_page_config(page_title="유튜브 키 & 코드 분석기", page_icon="🎵")
 
 st.title("🎸 유튜브 키 & 코드 분석기")
-st.markdown("노래 제목이나 가수명을 검색하면 유튜브 영상을 직접 띄워줄게!")
+st.markdown("노래 제목이나 가수명을 검색하면 유튜브 영상과 함께 다양한 7도화음·텐션 코드가 포함된 타임라인을 분석해 줄게!")
 
 # 검색어 입력
 search_query = st.text_input("검색할 곡 제목을 입력해줘", placeholder="예: DAY6 예뻤어")
@@ -41,18 +41,19 @@ if search_query:
                 selected_title = st.selectbox("검색된 곡 중 확인할 노래를 골라봐!", list(video_options.keys()))
                 selected_url = video_options[selected_title]
                 
-                # 💡 유튜브 영상 플레이어를 화면에 직접 띄우기
+                # 유튜브 영상 플레이어 표시
                 st.markdown("---")
                 st.subheader(f"▶️ 선택한 영상: {selected_title}")
                 st.video(selected_url)
                 
                 # 분석 버튼
-                if st.button("이 영상 오디오 추출 및 키 분석하기"):
-                    with st.spinner("오디오를 가져와서 분석 중이야... 잠시만 기다려줘!"):
+                if st.button("이 영상 오디오 추출 및 상세 코드 진행 분석하기"):
+                    with st.spinner("오디오를 가져와서 정밀 코드 분석 중이야... 잠시만 기다려줘!"):
                         for f in glob.glob("audio.*"):
                             os.remove(f)
 
                         download_opts = {
+                            'format': 'bestaudio/best',
                             'outtmpl': 'audio.%(ext)s',
                             'extractor_args': {'youtube': {'player_client': ['tv_embedded']}},
                             'nocheckcertificate': True,
@@ -66,22 +67,77 @@ if search_query:
                             raise Exception("오디오 다운로드에 실패했어.")
                         output_file = downloaded_files[0]
                         
-                        st.success("오디오 추출 성공!")
+                        st.success("오디오 추출 및 정밀 분석 완료!")
 
-                        # Librosa 키 분석
+                        # ---------------------------------------------------------
+                        # Librosa를 이용한 키(Key) 및 다양한 코드 템플릿 분석
+                        # ---------------------------------------------------------
                         st.markdown("---")
-                        st.subheader("🔍 음악 AI 분석 결과")
+                        st.subheader("🔍 음악 AI 정밀 분석 결과")
                         
-                        y, sr = librosa.load(output_file, duration=30)
-                        chroma = librosa.feature.chroma_stft(y=y, sr=sr)
-                        chroma_mean = np.mean(chroma, axis=1)
+                        # 서버 용량을 고려해 앞부분 45초 분석
+                        y, sr = librosa.load(output_file, duration=45)
+                        hop_length = 512
                         
+                        # 크로마(Chroma) 특징 추출
+                        chroma = librosa.feature.chroma_stft(y=y, sr=sr, hop_length=hop_length)
+                        
+                        # 전체 곡의 주요 키(Key) 추정
+                        chroma_mean_total = np.mean(chroma, axis=1)
                         notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
-                        estimated_key_idx = np.argmax(chroma_mean)
-                        estimated_key = notes[estimated_key_idx]
+                        estimated_key = notes[np.argmax(chroma_mean_total)]
                         
                         st.metric(label="추정된 주요 키 (Key)", value=estimated_key)
-                        st.info("💡 팁: 서버 용량 제한 때문에 곡의 앞부분 30초를 기준으로 키를 분석했어!")
+                        
+                        # 구간별 코드 진행 추정 (3초 단위)
+                        chunk_duration = 3.0 
+                        frames_per_chunk = int(sr * chunk_duration / hop_length)
+                        total_frames = chroma.shape[1]
+                        
+                        # 💡 다양한 코드 템플릿 정의 (반음 위치 기준 12진법 배열)
+                        chord_templates = {
+                            "": [1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0],             # Major (Root, 3, 5)
+                            "m": [1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0],            # Minor (Root, b3, 5)
+                            "7": [1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0],            # Dominant 7th (Root, 3, 5, b7)
+                            "maj7": [1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1],         # Major 7th (Root, 3, 5, 7)
+                            "m7": [1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0],           # Minor 7th (Root, b3, 5, b7)
+                            "sus4": [1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0],          # Sus4 (Root, 4, 5)
+                            "sus2": [1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0],          # Sus2 (Root, 2, 5)
+                            "dim": [1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0],           # Diminished (Root, b3, b5)
+                            "aug": [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0],           # Augmented (Root, 3, #5)
+                            "add9": [1, 0, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0],         # Add9 / Add2 (Root, 2, 3, 5)
+                        }
+                        
+                        chord_names = []
+                        template_matrix = []
+                        for i, note in enumerate(notes):
+                            for suffix, template in chord_templates.items():
+                                chord_names.append(note + suffix)
+                                template_matrix.append(np.roll(template, i))
+                        template_matrix = np.array(template_matrix)
+                        
+                        progression_data = []
+                        for start_f in range(0, total_frames, frames_per_chunk):
+                            end_f = min(start_f + frames_per_chunk, total_frames)
+                            chunk_chroma = chroma[:, start_f:end_f]
+                            if chunk_chroma.shape[1] == 0:
+                                break
+                            mean_chroma = np.mean(chunk_chroma, axis=1)
+                            scores = np.dot(template_matrix, mean_chroma)
+                            best_idx = np.argmax(scores)
+                            
+                            start_time = int(start_f * hop_length / sr)
+                            end_time = int(end_f * hop_length / sr)
+                            chord_name = chord_names[best_idx]
+                            
+                            progression_data.append({
+                                "구간": f"{start_time}초 ~ {end_time}초",
+                                "추정 코드": chord_name
+                            })
+                        
+                        st.markdown("### 📊 타임라인별 상세 코드 진행 (앞부분 45초)")
+                        st.table(progression_data)
+                        st.info("💡 팁: 이제 7도화음과 sus4, dim 같은 다채로운 코드들도 함께 분석되니까 연주할 때 훨씬 도움될 거야!")
                         
         except Exception as e:
             st.error(f"분석 중에 문제가 생겼어: {e}")
