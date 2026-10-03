@@ -9,7 +9,7 @@ from yt_dlp import YoutubeDL
 st.set_page_config(page_title="유튜브 키 & 코드 분석기", page_icon="🎵")
 
 st.title("🎸 유튜브 키 & 코드 분석기")
-st.markdown("노래 제목이나 가수명을 검색하면 유튜브에서 찾아줄게!")
+st.markdown("노래 제목이나 가수명을 검색하면 유튜브 영상을 직접 띄워줄게!")
 
 # 검색어 입력
 search_query = st.text_input("검색할 곡 제목을 입력해줘", placeholder="예: DAY6 예뻤어")
@@ -17,10 +17,10 @@ search_query = st.text_input("검색할 곡 제목을 입력해줘", placeholder
 if search_query:
     with st.spinner("유튜브에서 곡을 검색하는 중..."):
         try:
-            # 유튜브 검색 옵션 (상위 5개 검색)
             search_opts = {
                 'extract_flat': True,
-                'extractor_args': {'youtube': {'player_client': ['mweb']}},
+                'extractor_args': {'youtube': {'player_client': ['tv_embedded']}},
+                'nocheckcertificate': True,
             }
             
             with YoutubeDL(search_opts) as ydl:
@@ -30,7 +30,6 @@ if search_query:
             if not entries:
                 st.warning("검색 결과가 없네. 다른 검색어로 다시 입력해 봐!")
             else:
-                # 검색된 영상들의 제목과 URL을 딕셔너리로 매핑
                 video_options = {}
                 for entry in entries:
                     title = entry.get('title')
@@ -38,20 +37,24 @@ if search_query:
                     if title:
                         video_options[title] = url
                 
-                # 사용자가 목록에서 선택할 수 있도록 셀렉트박스 제공
-                selected_title = st.selectbox("검색된 곡 중 분석할 노래를 골라봐!", list(video_options.keys()))
+                # 사용자가 목록에서 선택
+                selected_title = st.selectbox("검색된 곡 중 확인할 노래를 골라봐!", list(video_options.keys()))
+                selected_url = video_options[selected_title]
                 
-                if st.button("선택한 곡 분석 시작"):
-                    selected_url = video_options[selected_title]
-                    
-                    with st.spinner(f"'{selected_title}' 오디오 가져와서 분석 중이야... 잠시만 기다려줘!"):
-                        # 기존 파일 청소
+                # 💡 유튜브 영상 플레이어를 화면에 직접 띄우기
+                st.markdown("---")
+                st.subheader(f"▶️ 선택한 영상: {selected_title}")
+                st.video(selected_url)
+                
+                # 분석 버튼
+                if st.button("이 영상 오디오 추출 및 키 분석하기"):
+                    with st.spinner("오디오를 가져와서 분석 중이야... 잠시만 기다려줘!"):
                         for f in glob.glob("audio.*"):
                             os.remove(f)
 
                         download_opts = {
                             'outtmpl': 'audio.%(ext)s',
-                            'extractor_args': {'youtube': {'player_client': ['mweb']}},
+                            'extractor_args': {'youtube': {'player_client': ['tv_embedded']}},
                             'nocheckcertificate': True,
                         }
                         
@@ -63,10 +66,9 @@ if search_query:
                             raise Exception("오디오 다운로드에 실패했어.")
                         output_file = downloaded_files[0]
                         
-                        st.success(f"오디오 추출 성공! 🎵 {selected_title}")
-                        st.audio(output_file)
+                        st.success("오디오 추출 성공!")
 
-                        # Librosa를 이용한 키(Key) 분석
+                        # Librosa 키 분석
                         st.markdown("---")
                         st.subheader("🔍 음악 AI 분석 결과")
                         
