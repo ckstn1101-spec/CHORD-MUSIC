@@ -44,11 +44,12 @@ if check_password():
                     if os.path.exists(output_file):
                         os.remove(output_file)
 
-                    # 봇 차단 우회를 위한 안드로이드 클라이언트 옵션 적용
+                    # iOS 및 Web 클라이언트를 복합적으로 사용하는 우회 옵션
                     ydl_opts = {
-                        'format': 'bestaudio/best',
+                        'format': 'bestaudio',
                         'outtmpl': output_file,
-                        'extractor_args': {'youtube': {'player_client': ['android']}},
+                        'extractor_args': {'youtube': {'player_client': ['ios', 'web']}},
+                        'nocheckcertificate': True,
                     }
                     
                     with YoutubeDL(ydl_opts) as ydl:
