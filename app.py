@@ -44,12 +44,11 @@ if check_password():
                     if os.path.exists(output_file):
                         os.remove(output_file)
 
-                    # 유튜브 403 에러 우회를 위한 옵션 추가
+                    # 봇 차단 우회를 위한 안드로이드 클라이언트 옵션 적용
                     ydl_opts = {
                         'format': 'bestaudio/best',
                         'outtmpl': output_file,
-                        'force_ipv4': True,
-                        'extractor_args': {'youtube': {'player_client': ['web']}},
+                        'extractor_args': {'youtube': {'player_client': ['android']}},
                     }
                     
                     with YoutubeDL(ydl_opts) as ydl:
